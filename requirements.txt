@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+langchain-community
+langchain-core
+langchain-huggingface # You still import HuggingFaceEndpoint, include this
+pydantic
+ollama
