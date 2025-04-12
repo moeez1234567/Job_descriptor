@@ -1,47 +1,52 @@
-import os
-import traceback
-import re
-import uvicorn # Import uvicorn
-from fastapi import FastAPI, Request, HTTPException # Import FastAPI and HTTPException
-from fastapi.responses import JSONResponse # For potential custom responses
-from fastapi.middleware.cors import CORSMiddleware # Import CORS Middleware
-from pydantic import BaseModel, Field, validator # Import Pydantic BaseModel and Field
-from typing import List, Optional, Union # For type hinting
+from fastapi import FastAPI, Request, HTTPException
+import uvicorn
+from fastapi.responses import (
+    HTMLResponse,
+    JSONResponse,
+)  # fastapi by default sendind response as jason in api so HTMLResponse tells that i want to return or render the full Html through api
+from fastapi.templating import (
+    Jinja2Templates,
+)  # jinja2 for searching the templates directory and handel the dynamic data like {"hello :"name"} i can put any value in the name
+import traceback  # to see proper error
+import re  # to play with the text data (reguler expression) which can used to search text, match , replac or extract
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field, validator  # Import Pydantic BaseModel and Field
+from typing import List, Optional, Union  # For type hinting
 from langchain_huggingface import HuggingFaceEndpoint
 from langchain_community.llms import Ollama
 from langchain_core.prompts import PromptTemplate
 from datetime import date, timedelta
-import sys # To exit if model loading fails
-
+import sys  # To exit if model loading fails
 
 
 ollama_model = "llama3:8b"
-# Note: FastAPI/Uvicorn use --reload flag for debug/hot-reloading
-# DEBUG_MODE = os.getenv("FASTAPI_DEBUG", "False").lower() == "true" # Less direct equivalent
+# model import from ollama
 
 # --- Initialize FastAPI App ---
 app = FastAPI(
     title="Job Description Generator API",
     description="API to generate job descriptions using Hugging Face LLM",
-    version="1.0.0"
+    version="1.0.0",
 )
+# fastapi app
+
 
 # --- CORS Configuration ---
 # Allow all origins for development, restrict in production
-origins = ["*"] # Or specify frontend origins like ["http://localhost:3000"]
+origins = [
+    "*"
+]  # Or specify frontend origins like ["http://localhost:3000"] # to allow which frontend request pass can assess this backend
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"], # Allows all methods (GET, POST, etc.)
-    allow_headers=["*"], # Allows all headers
+    allow_methods=["*"],  # Allows all methods (GET, POST, etc.)
+    allow_headers=["*"],  # Allows all headers
 )
 
-# --- Global variable to hold the loaded LLM and Prompt ---
-# # These will be populated during startup
-# llm: Optional[HuggingFaceEndpoint] = None
-# prompt_template: Optional[PromptTemplate] = None
+# load llm model of ollama which i download locally
+
 
 # --- LLM Loading Function (mostly unchanged) ---
 def load_llm_model(model_name="llama3:8b"):
@@ -55,7 +60,7 @@ def load_llm_model(model_name="llama3:8b"):
 
     try:
         loaded_llm = Ollama(
-            model = ollama_model,
+            model=ollama_model,
             # huggingfacehub_api_token=api_token,
             temperature=0.5,
             num_predict=1024,
@@ -71,6 +76,10 @@ def load_llm_model(model_name="llama3:8b"):
     except Exception as e:
         print(f"FATAL: Error loading LLM '{model_name}': {e}\n{traceback.format_exc()}")
         return None
+
+
+# know creating prompt which gives to the llm to genrate answer and also gives perameters
+
 
 # --- Prompt Template Function (mostly unchanged) ---
 def get_job_description_prompt():
@@ -128,21 +137,31 @@ Your task is to generate **two distinct sections** based on the provided details
     created_prompt = PromptTemplate(
         template=template,
         input_variables=[
-            "job_title", "company_name", "location", "workplace", "skills",
-            "min_experience_years", "exp_level_category", "min_salary", "max_salary",
-            "deadline", "notes",
+            "job_title",
+            "company_name",
+            "location",
+            "workplace",
+            "skills",
+            "min_experience_years",
+            "exp_level_category",
+            "min_salary",
+            "max_salary",
+            "deadline",
+            "notes",
             "qualification_details",
             "benefits_details",
             "style_preference",
-            "output_length_preference"
-        ]
+            "output_length_preference",
+        ],
     )
     print("Prompt template created.")
     return created_prompt
 
+
+# check llm is start and make a async function that can run even the error in the upper code line
 # --- Startup Event ---
 @app.on_event("startup")
-async def startup_event(): # async can works like that if the upper line of code take time to execute they cant effect on them they start processing this async function in the same time 
+async def startup_event():  # async can works like that if the upper line of code take time to execute they cant effect on them they start processing this async function in the same time
     """Load LLM and Prompt on application startup."""
     global llm, prompt_template
     print("Running startup event...")
@@ -153,10 +172,15 @@ async def startup_event(): # async can works like that if the upper line of code
         sys.exit("LLM Loading Failed")
 
     prompt_template = get_job_description_prompt()
-    if prompt_template is None: # Should not happen based on current code, but good practice
-         print("FATAL: Failed to create prompt template. Application cannot start.")
-         sys.exit("Prompt Template Creation Failed")
+    if (
+        prompt_template is None
+    ):  # Should not happen based on current code, but good practice
+        print("FATAL: Failed to create prompt template. Application cannot start.")
+        sys.exit("Prompt Template Creation Failed")
     print("Startup complete. LLM and prompt are ready.")
+
+
+# know check the data vaslidation the data comes from frontend is the right fomet like is str , int , or list etc;
 
 
 # --- Pydantic Model for Input Validation ---
@@ -164,23 +188,27 @@ class JobDetailsInput(BaseModel):
     job_title: str
     company_name: str
     location: str
-    workplace: str # e.g., "Remote", "On-site", "Hybrid"
-    skills: Union[List[str], str] # Accept list or comma-separated string
-    min_experience_years: Union[float, str] # Can be number or text like "1-2"
-    exp_level_category: str # e.g., "Entry Level", "Mid Level", "Senior Level"
-    style_preference: str # e.g., "Indeed", "LinkedIn", "LLM Generated (Full & Beautiful)"
-    output_length_preference: str # e.g., "Concise", "Standard", "Detailed"
+    workplace: str  # e.g., "Remote", "On-site", "Hybrid"
+    skills: Union[List[str], str]  # Accept list or comma-separated string
+    min_experience_years: Union[float, str]  # Can be number or text like "1-2"
+    exp_level_category: str  # e.g., "Entry Level", "Mid Level", "Senior Level"
+    style_preference: (
+        str  # e.g., "Indeed", "LinkedIn", "LLM Generated (Full & Beautiful)"
+    )
+    output_length_preference: str  # e.g., "Concise", "Standard", "Detailed"
 
     # Optional fields with defaults
     min_salary: Optional[Union[int, float]] = None
     max_salary: Optional[Union[int, float]] = None
-    deadline: Optional[str] = Field(default_factory=lambda: (date.today() + timedelta(days=30)).strftime("%Y-%m-%d"))
+    deadline: Optional[str] = Field(
+        default_factory=lambda: (date.today() + timedelta(days=30)).strftime("%Y-%m-%d")
+    )
     notes: Optional[str] = None
     qualification_details: Optional[str] = None
     benefits_details: Optional[str] = None
 
     # Validator to ensure skills is handled correctly if passed as string
-    @validator('skills', pre=True)
+    @validator("skills", pre=True)
     def ensure_skills_is_list_or_str(cls, v):
         if isinstance(v, str):
             # If you expect comma-separated, you could split here:
@@ -190,6 +218,10 @@ class JobDetailsInput(BaseModel):
         if isinstance(v, list):
             return v
         raise ValueError("Skills must be a list of strings or a single string")
+
+
+# know formet the incoming text into the bold text and setup discription template
+
 
 # --- Formatting Function (Unchanged) ---
 def format_job_description(text, data_dict):
@@ -217,17 +249,17 @@ def format_job_description(text, data_dict):
         "Benefits",
         "About Us",
         "About the Role",
-        "About the Company"
+        "About the Company",
     ]
 
     # Add skills to keywords (handle both list and string)
     skills = data_dict.get("skills", [])
     if isinstance(skills, str):
-         # If skills remain a string, you might split them here or add the whole string
-         keywords.append(skills)
-         # Example if splitting: keywords.extend([s.strip() for s in skills.split(',') if s.strip()])
+        # If skills remain a string, you might split them here or add the whole string
+        keywords.append(skills)
+        # Example if splitting: keywords.extend([s.strip() for s in skills.split(',') if s.strip()])
     elif isinstance(skills, list):
-         keywords.extend(skills)
+        keywords.extend(skills)
 
     # Filter out None or empty keywords before sorting
     keywords = [kw for kw in keywords if kw]
@@ -237,25 +269,35 @@ def format_job_description(text, data_dict):
 
     formatted_text = text
     for keyword in keywords:
-         # Ensure keyword is a non-empty string before attempting regex
-        if isinstance(keyword, str) and keyword and keyword != "None" and keyword != "Not Specified":
+        # Ensure keyword is a non-empty string before attempting regex
+        if (
+            isinstance(keyword, str)
+            and keyword
+            and keyword != "None"
+            and keyword != "Not Specified"
+        ):
             try:
                 # Case-insensitive replacement using word boundaries for safety
-                pattern = re.compile(r'\b' + re.escape(keyword) + r'\b', re.IGNORECASE)
+                pattern = re.compile(r"\b" + re.escape(keyword) + r"\b", re.IGNORECASE)
                 # Replacement using a function to preserve original case in <strong> tag - slightly more complex
                 # def replace_func(match):
                 #     return f"<strong>{match.group(0)}</strong>"
                 # formatted_text = pattern.sub(replace_func, formatted_text)
 
                 # Simpler replacement (makes keyword bold with the case defined in `keywords` list):
-                formatted_text = pattern.sub(f"<strong>{keyword}</strong>", formatted_text)
+                formatted_text = pattern.sub(
+                    f"<strong>{keyword}</strong>", formatted_text
+                )
             except re.error as e:
-                 print(f"Regex error for keyword '{keyword}': {e}") # Log regex errors
+                print(f"Regex error for keyword '{keyword}': {e}")  # Log regex errors
 
     return formatted_text
 
+
+# know its time to make api endpoint final step to send  data to the frontend for submitting the final job description outcome
+# it can process data and gives to the llm and save their genrated text and return their clean text to the function
 # --- API Endpoint ---
-@app.post('/generate_job_description', tags=["Job Description"])
+@app.post("/generate_job_description", tags=["Job Description"])
 async def generate_job_description_api(data: JobDetailsInput):
     """
     API endpoint to generate job description based on input details.
@@ -265,9 +307,11 @@ async def generate_job_description_api(data: JobDetailsInput):
     # Check if LLM is loaded (should be handled by startup, but double-check)
     if llm is None or prompt_template is None:
         print("Error: LLM or Prompt Template not available.")
-        raise HTTPException(status_code=500, detail="Server error: LLM or Prompt not initialized")
+        raise HTTPException(
+            status_code=500, detail="Server error: LLM or Prompt not initialized"
+        )
 
-    print(f"Received request data: {data.dict()}") # Log Pydantic model data
+    print(f"Received request data: {data.dict()}")  # Log Pydantic model data
 
     # --- Prepare Input for LangChain ---
     # Convert skills list/string back to string for the prompt if needed
@@ -275,15 +319,23 @@ async def generate_job_description_api(data: JobDetailsInput):
     if isinstance(data.skills, list):
         skills_str = ", ".join(data.skills)
     else:
-        skills_str = data.skills # Assume it's already a suitable string
+        skills_str = data.skills  # Assume it's already a suitable string
 
     # Format salary strings (handle None/0 gracefully)
     try:
-        min_salary_str = f"{int(data.min_salary):,}" if data.min_salary is not None and data.min_salary > 0 else "Not Specified"
+        min_salary_str = (
+            f"{int(data.min_salary):,}"
+            if data.min_salary is not None and data.min_salary > 0
+            else "Not Specified"
+        )
     except (ValueError, TypeError):
         min_salary_str = "Not Specified"
     try:
-        max_salary_str = f"{int(data.max_salary):,}" if data.max_salary is not None and data.max_salary > 0 else "Not Specified"
+        max_salary_str = (
+            f"{int(data.max_salary):,}"
+            if data.max_salary is not None and data.max_salary > 0
+            else "Not Specified"
+        )
     except (ValueError, TypeError):
         max_salary_str = "Not Specified"
 
@@ -294,16 +346,22 @@ async def generate_job_description_api(data: JobDetailsInput):
         "location": data.location,
         "workplace": data.workplace,
         "skills": skills_str,
-        "min_experience_years": str(data.min_experience_years), # Ensure string if needed by prompt
+        "min_experience_years": str(
+            data.min_experience_years
+        ),  # Ensure string if needed by prompt
         "exp_level_category": data.exp_level_category,
         "min_salary": min_salary_str,
         "max_salary": max_salary_str,
-        "deadline": data.deadline if data.deadline else "Not Specified", # Handle potential None from Pydantic default_factory edge case
+        "deadline": (
+            data.deadline if data.deadline else "Not Specified"
+        ),  # Handle potential None from Pydantic default_factory edge case
         "notes": data.notes if data.notes else "None",
-        "qualification_details": data.qualification_details if data.qualification_details else "None",
+        "qualification_details": (
+            data.qualification_details if data.qualification_details else "None"
+        ),
         "benefits_details": data.benefits_details if data.benefits_details else "None",
         "style_preference": data.style_preference,
-        "output_length_preference": data.output_length_preference
+        "output_length_preference": data.output_length_preference,
     }
 
     # --- Invoke LLM Chain ---
@@ -313,7 +371,7 @@ async def generate_job_description_api(data: JobDetailsInput):
         # consider running it in a separate thread pool using asyncio.to_thread
         # or starlette.concurrency.run_in_threadpool
         chain = prompt_template | llm
-        response = chain.invoke(input_data_dict) # Using synchronous invoke
+        response = chain.invoke(input_data_dict)  # Using synchronous invoke
 
         if isinstance(response, str):
             clean_response = response.strip()
@@ -323,47 +381,70 @@ async def generate_job_description_api(data: JobDetailsInput):
             formatted_response = format_job_description(clean_response, input_data_dict)
 
             print("Successfully generated job description.")
+            print(formatted_response)
             return {
                 "status": "success",
                 "job_description": formatted_response,
                 # "raw_description": clean_response
-            } # FastAPI automatically converts dict to JSON response
+            }  # FastAPI automatically converts dict to JSON response
         else:
             print(f"Error: LLM returned unexpected type: {type(response)}")
-            raise HTTPException(status_code=500, detail="LLM returned unexpected response type")
+            raise HTTPException(
+                status_code=500, detail="LLM returned unexpected response type"
+            )
 
     except Exception as e:
-        print(f"Error during LLM invocation or processing: {e}\n{traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail="An error occurred while generating the description.")
-    
+        print(
+            f"Error during LLM invocation or processing: {e}\n{traceback.format_exc()}"
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="An error occurred while generating the description.",
+        )
 
 
-
+# know extra perameter of health
 # --- Health Check Endpoint (Good Practice) ---
 @app.get("/health", tags=["Health Check"])
 async def health_check():
     """Basic health check endpoint."""
     # Could add checks here (e.g., is LLM loaded?)
     if llm and prompt_template:
-         return {"status": "ok", "message": "Service is running and LLM is loaded."}
+        return {"status": "ok", "message": "Service is running and LLM is loaded."}
     else:
-         # Should not happen if startup succeeded, but indicates a problem
-         return JSONResponse(
-             status_code=503,
-             content={"status": "error", "message": "Service is starting or encountered an issue (LLM not ready)."}
-         )
-    
+        # Should not happen if startup succeeded, but indicates a problem
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "error",
+                "message": "Service is starting or encountered an issue (LLM not ready).",
+            },
+        )
 
 
-    
+templates = Jinja2Templates(directory="templates")
 
 
-# --- Main Execution ---
-if __name__ == '__main__':
-    # Uvicorn runs the app. Startup events are handled by FastAPI itself.
-    # Use reload=True for development (similar to Flask's debug=True)
-    print("Starting FastAPI server with Uvicorn...")
-    uvicorn.run("main:app", host='0.0.0.0', port=8000, reload=True, log_level="info")
-    # For production, you would typically run:
-    # uvicorn main:app --host 0.0.0.0 --port 5000 --workers 4
-    # (Save the code as main.py)
+@app.get("/", response_class=HTMLResponse)
+async def home(request: Request):
+    return templates.TemplateResponse("main.html", {"request": request})
+
+
+# @app.post("/generate", response_class=HTMLResponse)
+# async def generate(request: Request, job_title: str = Form(...)):
+#     # You can use job_title here to generate the description
+#     result = f"Generated JD for: {job_title}"
+
+#     return templates.TemplateResponse("main.html", {
+#         "request": request,
+#         "result": result,
+#         "job_title": job_title
+#     })
+
+# @app.get("/main", response_class=HTMLResponse)
+# def read_root(request: Request):
+#     return templates.TemplateResponse("main.html", {"request": request})
+
+
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

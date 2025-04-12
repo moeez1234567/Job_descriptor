@@ -1,7 +1,10 @@
-fastapi
 uvicorn[standard]
-langchain-community
-langchain-core
-langchain-huggingface # You still import HuggingFaceEndpoint, include this
+fastapi
 pydantic
+python-multipart
+jinja2
+aiofiles
+langchain-core
+langchain-community
+langchain-huggingface
 ollama

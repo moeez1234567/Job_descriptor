@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generate Job Description</title>
+</head>
+<body>
+    <h2>Job Description Generator</h2>
+
+    <form id="jobForm">
+        <label>Job Title:</label><br>
+        <input type="text" name="job_title" required><br><br>
+
+        <label>Company Name:</label><br>
+        <input type="text" name="company_name" required><br><br>
+
+        <label>Location:</label><br>
+        <input type="text" name="location" required><br><br>
+
+        <label>Workplace Type:</label><br>
+        <select name="workplace" required>
+            <option value="">-- Select --</option>
+            <option value="Remote">Remote</option>
+            <option value="On-site">On-site</option>
+            <option value="Hybrid">Hybrid</option>
+        </select><br><br>
+
+        <label>Skills (comma-separated):</label><br>
+        <input type="text" name="skills"><br><br>
+
+        <label>Minimum Salary:</label><br>
+        <input type="number" name="min_salary"><br><br>
+
+        <label>Maximum Salary:</label><br>
+        <input type="number" name="max_salary"><br><br>
+
+        <label>Experience (Years):</label><br>
+        <input type="number" name="min_experience_years"><br><br>
+
+        <label>Experience Level Category:</label><br>
+        <select name="exp_level_category" required>
+            <option value="">-- Select --</option>
+            <option value="Entry Level">Entry Level</option>
+            <option value="Mid Level">Mid Level</option>
+            <option value="Senior Level">Senior Level</option>
+        </select><br><br>
+
+        <label>Style Preference:</label><br>
+        <select name="style_preference" required>
+            <option value="">-- Select --</option>
+            <option value="Indeed">Indeed</option>
+            <option value="LinkedIn">LinkedIn</option>
+            <option value="LLM Generated (Full & Beautiful)">LLM Generated (Full & Beautiful)</option>
+        </select><br><br>
+
+        <label>Output Length Preference:</label><br>
+        <select name="output_length_preference" required>
+            <option value="">-- Select --</option>
+            <option value="Concise">Concise</option>
+            <option value="Standard">Standard</option>
+            <option value="Detailed">Detailed</option>
+        </select><br><br>
+
+        <button type="submit">Generate</button>
+    </form>
+
+    <div id="output"></div>
+    
+
+    <script>
+        document.getElementById("jobForm").addEventListener("submit", async function (e) {
+            e.preventDefault();
+
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+
+            // Convert numeric values properly
+            data.min_salary = parseInt(data.min_salary);
+            data.max_salary = parseInt(data.max_salary);
+            data.min_experience_years = parseFloat(data.min_experience_years);
+
+            const response = await fetch("/generate_job_description", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(data)
+            });
+
+            const result = await response.json();
+            document.getElementById("output").innerHTML = `<pre>${result.job_description}</pre>`;
+        });
+    </script>
+</body>
+</html>
