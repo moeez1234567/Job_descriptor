@@ -5,6 +5,4 @@ python-multipart
 jinja2
 aiofiles
 langchain-core
-langchain-community
-langchain-huggingface
 ollama
